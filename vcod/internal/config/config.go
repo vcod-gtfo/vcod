@@ -13,6 +13,7 @@ import (
 	"bufio"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	"strings"
 
 	"vcod/internal/install"
+	"vcod/internal/video"
 )
 
 // Flavor is a protocol family: retail 1.5 (protocol 6) or COD1.6X (protocol 10). Each
@@ -63,8 +65,9 @@ const (
 	KeyServerExtra     = "SERVER_EXTRA"
 	KeyClientBuild     = "CLIENT_BUILD"
 	KeyClientHome      = "CLIENT_HOME"
-	KeyClientMode      = "CLIENT_MODE"
-	KeyClientFull      = "CLIENT_FULLSCREEN"
+	KeyClientRes       = "CLIENT_RES"
+	KeyClientDisplay   = "CLIENT_DISPLAY"
+	KeyClientMaxFPS    = "CLIENT_MAXFPS"
 	KeyClientExtra     = "CLIENT_EXTRA"
 	KeyAllowUnversion  = "ALLOW_UNVERSIONED"
 	KeyReadyTimeoutSec = "READY_TIMEOUT"
@@ -83,8 +86,9 @@ var Keys = []struct{ Key, Default, Help string }{
 	{KeyServerExtra, "", "more +set arguments for every server"},
 	{KeyClientBuild, "video", "video (SDL window) or headless"},
 	{KeyClientHome, "", "fs_homepath root; each flavor gets home-<flavor> inside"},
-	{KeyClientMode, "-1", "r_mode for the video client (-1 = desktop size)"},
-	{KeyClientFull, "0", "1 = fullscreen video client"},
+	{KeyClientRes, "720p", "video client resolution: a preset (vcod display presets) or WIDTHxHEIGHT"},
+	{KeyClientDisplay, "window", "video client display: window, fullscreen or borderless"},
+	{KeyClientMaxFPS, "125", "com_maxfps for every client: 1–1000 (125, 250, 333 …), or unlocked (0)"},
 	{KeyClientExtra, "", "more +set arguments for every client"},
 	{KeyAllowUnversion, "1", "1.6x server: let clients without a 1.6X build string in"},
 	{KeyReadyTimeoutSec, "180", "seconds play waits for a server to answer"},
@@ -120,6 +124,7 @@ func LoadFrom(path, flavorFlag string, fromFlag bool) (*Config, error) {
 	if err := c.readFile(); err != nil {
 		return nil, err
 	}
+	c.translateLegacy()
 	name := c.Get(KeyFlavor)
 	if fromFlag {
 		name = flavorFlag
@@ -167,6 +172,41 @@ func (c *Config) Int(key string, def int) int {
 		return n
 	}
 	return def
+}
+
+// Video is the video client's settings from the configuration. A value that does not
+// parse falls back to its default, with the error returned so callers can warn.
+func (c *Config) Video() (video.Settings, error) {
+	var errs []string
+	res, err := video.ParseRes(c.Get(KeyClientRes))
+	if err != nil {
+		errs = append(errs, KeyClientRes+": "+err.Error())
+		res, _ = video.ParseRes(defaultOf(KeyClientRes))
+	}
+	disp, err := video.ParseDisplay(c.Get(KeyClientDisplay))
+	if err != nil {
+		errs = append(errs, KeyClientDisplay+": "+err.Error())
+		disp = video.Window
+	}
+	fps, err := video.ParseFPS(c.Get(KeyClientMaxFPS))
+	if err != nil {
+		errs = append(errs, KeyClientMaxFPS+": "+err.Error())
+		fps, _ = video.ParseFPS(defaultOf(KeyClientMaxFPS))
+	}
+	s := video.Settings{Res: res, Display: disp, MaxFPS: fps}
+	if len(errs) > 0 {
+		return s, errors.New(strings.Join(errs, "; "))
+	}
+	return s, nil
+}
+
+func defaultOf(key string) string {
+	for _, k := range Keys {
+		if k.Key == key {
+			return k.Default
+		}
+	}
+	return ""
 }
 
 // Bool reads a 0/1 key.
@@ -312,6 +352,36 @@ func (c *Config) readFile() error {
 		c.raw[key] = value
 	}
 	return sc.Err()
+}
+
+// Keys older configs used, replaced by CLIENT_RES and CLIENT_DISPLAY.
+const (
+	legacyClientMode = "CLIENT_MODE"
+	legacyClientFull = "CLIENT_FULLSCREEN"
+)
+
+// LegacyKeys are keys a config file may still hold that vcod reads only to translate.
+var LegacyKeys = []string{legacyClientMode, legacyClientFull}
+
+// translateLegacy reads CLIENT_FULLSCREEN and CLIENT_MODE from an older file as
+// CLIENT_DISPLAY and CLIENT_RES, unless the file sets those already. `vcod display`
+// rewrites them under the new names.
+func (c *Config) translateLegacy() {
+	if v, ok := c.raw[legacyClientFull]; ok && c.raw[KeyClientDisplay] == "" {
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "1", "true", "yes", "on":
+			c.raw[KeyClientDisplay] = "fullscreen"
+		default:
+			c.raw[KeyClientDisplay] = "window"
+		}
+	}
+	if v, ok := c.raw[legacyClientMode]; ok && c.raw[KeyClientRes] == "" {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+			if name := video.ResFromMode(n); name != "" {
+				c.raw[KeyClientRes] = name
+			}
+		}
+	}
 }
 
 // parseLine reads one KEY=VALUE line, ignoring blanks and comments. Values may be

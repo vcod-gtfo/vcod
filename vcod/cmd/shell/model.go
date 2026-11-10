@@ -141,6 +141,16 @@ type Model struct {
 	copy   func(text string) tea.Cmd
 }
 
+// freshConfig re-reads the settings file, so a command sees what an earlier one saved.
+// It keeps the loaded configuration when the file cannot be read.
+func (m Model) freshConfig() *config.Config {
+	c, err := config.LoadFrom(m.cfg.Path, string(m.cfg.Flavor), m.cfg.FlavorFromFlag)
+	if err != nil {
+		return m.cfg
+	}
+	return c
+}
+
 // NewModel builds the session over an app context.
 func NewModel(ctx *app.Context) Model {
 	in := textinput.New()
@@ -263,6 +273,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.listen()
 	case doneMsg:
+		// The command may have changed the settings (display, config set, setup).
+		m.cfg = m.freshConfig()
 		cmds := []tea.Cmd{m.listen(), m.refresh()}
 		if t := m.tabByID(msg.tabID); t != nil && t.task != nil {
 			t.task.done, t.task.code = true, msg.code

@@ -97,12 +97,27 @@ func (m Model) facts(rows int) []string {
 	if rows >= 6 {
 		out := []string{"", badges}
 		out = append(out, srv...)
+		if len(out) < 5 {
+			out = append(out, m.clientLine())
+		}
 		for len(out) < 5 {
 			out = append(out, "")
 		}
 		return append(out, ui.StyleDim.Render("version "+m.version+" · "+ui.Slogan))
 	}
 	return append([]string{badges}, srv...)
+}
+
+// clientLine is what the client starts with: resolution, display mode, fps cap.
+func (m Model) clientLine() string {
+	if m.cfg == nil {
+		return ""
+	}
+	v, err := m.cfg.Video()
+	if err != nil {
+		return ui.StyleDim.Render("client  ") + ui.StyleYellow.Render("bad display setting — vcod display")
+	}
+	return ui.StyleDim.Render("client  " + v.Summary())
 }
 
 // serverLines is one line per flavor: up or down, and what an answering server plays.

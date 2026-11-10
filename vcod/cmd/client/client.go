@@ -13,6 +13,7 @@ import (
 	"vcod/internal/q3"
 	"vcod/internal/registry"
 	"vcod/internal/ui"
+	"vcod/internal/video"
 	"vcod/internal/ws"
 )
 
@@ -25,9 +26,12 @@ Options:
   --menu              do not join anything: stay at the main menu
   --headless          the headless build (build/), no window
   --video             the SDL build (build-video/), the default
-  --fullscreen        fullscreen (default from CLIENT_FULLSCREEN, 0)
-  --window            windowed
-  --mode N            r_mode (default from CLIENT_MODE, -1 = desktop size)
+  --res R             resolution: a preset (720p 1080p 1440p 4k desktop …) or WxH
+  --window            in a window              (these three default to CLIENT_DISPLAY,
+  --fullscreen        exclusive fullscreen      set with: vcod display)
+  --borderless        borderless over the desktop
+  --maxfps N          fps cap: 1–1000 (125, 250, 333 …) or unlocked
+  --mode N            a raw r_mode, instead of --res
   --build             build the client first when its sources are newer
   -- +set k v        anything after -- goes to the client's command line
 
@@ -49,11 +53,36 @@ func init() {
 		Group:       registry.GroupPlay,
 		Order:       30,
 		NeedsConfig: true,
-		Complete: func([]string) []string {
-			return []string{"start", "stop", "--menu", "--headless", "--video", "--fullscreen", "--window", "--mode", "--build"}
+		Complete: func(prev []string) []string {
+			return clientCandidates(prev)
 		},
 		Run: run,
 	})
+}
+
+// clientCandidates completes the client's flags, and the value after one that takes one.
+func clientCandidates(prev []string) []string {
+	if v := FlagValues(prev); v != nil {
+		return v
+	}
+	return []string{"start", "stop", "restart", "--menu", "--headless", "--video", "--res", "--window", "--fullscreen",
+		"--borderless", "--maxfps", "--mode", "--build"}
+}
+
+// FlagValues are the candidates for the value of a client flag that ends prev, or nil.
+func FlagValues(prev []string) []string {
+	if len(prev) == 0 {
+		return nil
+	}
+	switch prev[len(prev)-1] {
+	case "--res", "-r":
+		return video.PresetNames()
+	case "--maxfps", "--fps":
+		return video.FPSWords()
+	case "--display":
+		return []string{"window", "fullscreen", "borderless"}
+	}
+	return nil
 }
 
 func run(ctx *app.Context, args []string) int {
@@ -125,6 +154,11 @@ func Start(ctx *app.Context, args []string) int {
 	}
 	ctx.Out.OK("client %s started (%s build) → %s  %s", ui.FlavorBadge(string(f)), o.Build.Name, to,
 		ui.StyleDim.Render("(pid "+strconv.Itoa(j.PID)+")"))
+	if o.Build.Name == "video" {
+		ctx.Out.Note("display %s  ·  change: vcod display", o.Video.Summary())
+	} else {
+		ctx.Out.Note("fps cap %s", video.FPSString(o.Video.MaxFPS))
+	}
 	ctx.Out.Note("home %s  ·  console: vcod logs client  ·  close: vcod client stop", ctx.Cfg.ClientHome(f))
 	// A client that cannot open its window dies within a second; say so now rather than
 	// leaving a "started" that never appears.

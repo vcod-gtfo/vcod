@@ -15,6 +15,7 @@ import (
 	// The registry fills from init, as main's blank imports do.
 	_ "vcod/cmd/build"
 	_ "vcod/cmd/config"
+	_ "vcod/cmd/display"
 	_ "vcod/cmd/flavors"
 	_ "vcod/cmd/logs"
 	_ "vcod/cmd/play"

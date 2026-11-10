@@ -31,8 +31,8 @@ does both:
   2. the client: started and joined to 127.0.0.1:<port>, unless one is already running
 
 Server options: --port N, --cheats, --pure (see vcod help server).
-Client options: --headless, --video, --fullscreen, --window, --mode N, --build (see
-vcod help client). Both keep running after play returns: vcod stop ends them.`
+Client options: --headless, --video, --res R, --window, --fullscreen, --borderless,
+--maxfps N, --mode N, --build (see vcod help client; vcod display saves the defaults). Both keep running after play returns: vcod stop ends them.`
 
 func init() {
 	registry.Register(registry.Command{
@@ -43,15 +43,16 @@ func init() {
 		Group:       registry.GroupPlay,
 		Order:       10,
 		NeedsConfig: true,
-		Complete: func([]string) []string {
-			return append([]string{"--cheats", "--pure", "--headless", "--fullscreen", "--window", "--build"}, append(game.Maps, game.Gametypes...)...)
+		Complete: func(prev []string) []string {
+			if v := clientcmd.FlagValues(prev); v != nil {
+				return v
+			}
+			return append([]string{"--cheats", "--pure", "--headless", "--res", "--window", "--fullscreen", "--borderless",
+				"--maxfps", "--build"}, append(game.Maps, game.Gametypes...)...)
 		},
 		Run: run,
 	})
 }
-
-var clientFlags = map[string]bool{"--headless": true, "--video": true, "--fullscreen": true, "--fs": true,
-	"--window": true, "--windowed": true, "--build": true}
 
 func run(ctx *app.Context, args []string) int {
 	w, err := ctx.Workspace()
@@ -63,14 +64,16 @@ func run(ctx *app.Context, args []string) int {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case clientFlags[a]:
+		case game.SwitchFlags[a] || a == "--build":
 			cliArgs = append(cliArgs, a)
-		case a == "--mode":
+		case game.ValueFlags[a]:
 			cliArgs = append(cliArgs, a)
 			if i+1 < len(args) {
 				i++
 				cliArgs = append(cliArgs, args[i])
 			}
+		case strings.HasPrefix(a, "--") && strings.Contains(a, "=") && game.ValueFlags[a[:strings.Index(a, "=")]]:
+			cliArgs = append(cliArgs, a)
 		default:
 			if !strings.HasPrefix(a, "-") {
 				explicit = true

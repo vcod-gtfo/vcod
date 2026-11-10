@@ -150,7 +150,7 @@ func (m Model) startTask(line string, fields []string, inPlace bool) (tea.Model,
 	emit := func(s string) { events <- linesMsg{tabID: id, lines: []string{s}} }
 	lw := &ui.LineWriter{Emit: emit}
 	sub := *m.app
-	cfg := *m.cfg
+	cfg := *m.freshConfig()
 	cfg.Flavor, cfg.FlavorFromFlag = m.flavor, true
 	sub.Cfg = &cfg
 	sub.Out = ui.NewQuiet(lw)

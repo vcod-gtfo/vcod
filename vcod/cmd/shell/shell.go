@@ -28,10 +28,11 @@ A full-screen session. Commands are typed at the prompt without the vcod prefix:
   ❯ rcon status              a console command on this flavor's server
   ❯ test viewtest            a live test, streaming into a tab of its own
   ❯ build video              rebuild the windowed client
+  ❯ display 1080p fps 333    how the client opens: resolution, window/fullscreen/borderless, fps
   ❯ stop                     stop every server and client
 
 Each long command (play, server start, build, test, logs -f, flavors make) opens a tab
-titled with what was typed; quick ones (status, rcon, config) answer in the tab in front.
+titled with what was typed; quick ones (status, rcon, config, display) answer in the tab in front.
 When a command starts a server or a client, a tab following its console log opens too.
 ctrl+c cancels the command running in the tab in front; rerun runs it again.
 

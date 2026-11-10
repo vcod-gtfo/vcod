@@ -18,6 +18,7 @@ import (
 	_ "vcod/cmd/client"
 	_ "vcod/cmd/completion"
 	_ "vcod/cmd/config"
+	_ "vcod/cmd/display"
 	_ "vcod/cmd/doctor"
 	_ "vcod/cmd/flavors"
 	_ "vcod/cmd/install"

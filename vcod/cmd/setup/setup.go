@@ -9,14 +9,16 @@ import (
 	"vcod/internal/prompt"
 	"vcod/internal/registry"
 	"vcod/internal/ui"
+	"vcod/internal/video"
 )
 
 const help = `Usage:
   vcod setup
 
-Asks for the workspace folder, the default flavor, map and gametype, and how the video
-client opens (windowed or fullscreen). Existing values are offered as defaults; Enter
-keeps them. Ctrl-C at any point writes nothing. The rcon password is generated at the
+Asks for the workspace folder, the default flavor, map and gametype, and how the
+client opens: its resolution, window / fullscreen / borderless, and fps cap (vcod
+display changes those later). Existing values are offered as defaults; Enter keeps
+them. Ctrl-C at any point writes nothing. The rcon password is generated at the
 first server start (vcod config set RCON_PASSWORD … to choose one).`
 
 func init() {
@@ -81,18 +83,49 @@ func run(ctx *app.Context, args []string) int {
 	updates[config.KeyCheats] = b01(cheats)
 
 	out.Step("client")
-	fs, err := in.YesNo("Open the video client fullscreen?", cfg.Bool(config.KeyClientFull))
-	if err != nil {
-		return cancelled(ctx, err)
-	}
-	updates[config.KeyClientFull] = b01(fs)
-	if !fs {
-		mode, err := in.Ask("r_mode (-1 = desktop size, 3 = 640x480, 4 = 800x600, 6 = 1024x768):", cfg.Get(config.KeyClientMode))
+	cur, _ := cfg.Video()
+	for {
+		v, err := in.Ask("Resolution (desktop 720p 900p 1080p 1440p 4k uw1440 …, or WIDTHxHEIGHT):", cur.Res.Name)
 		if err != nil {
 			return cancelled(ctx, err)
 		}
-		if _, err := strconv.Atoi(mode); err == nil {
-			updates[config.KeyClientMode] = mode
+		if r, err := video.ParseRes(v); err == nil {
+			updates[config.KeyClientRes] = r.Name
+			break
+		} else {
+			out.Warn("%v", err)
+		}
+	}
+	for {
+		v, err := in.Ask("Display (window, fullscreen, borderless):", string(cur.Display))
+		if err != nil {
+			return cancelled(ctx, err)
+		}
+		if d, err := video.ParseDisplay(v); err == nil {
+			updates[config.KeyClientDisplay] = string(d)
+			break
+		} else {
+			out.Warn("%v", err)
+		}
+	}
+	for {
+		v, err := in.Ask("FPS cap (125, 250, 333, any 1–1000, or unlocked):", cfg.Get(config.KeyClientMaxFPS))
+		if err != nil {
+			return cancelled(ctx, err)
+		}
+		if n, err := video.ParseFPS(v); err == nil {
+			updates[config.KeyClientMaxFPS] = strconv.Itoa(n)
+			if n == 0 {
+				updates[config.KeyClientMaxFPS] = video.Unlocked
+			}
+			break
+		} else {
+			out.Warn("%v", err)
+		}
+	}
+	for _, k := range config.LegacyKeys {
+		if cfg.FileValue(k) != "" {
+			updates[k] = ""
 		}
 	}
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"vcod/internal/registry"
+	"vcod/internal/video"
 )
 
 // Bash returns the bash completion script, which zsh also loads through bashcompinit.
@@ -30,7 +31,9 @@ _vcod_completions() {
 
 `)
 	fmt.Fprintf(&b, "  local commands=%q\n", strings.Join(registry.Names(), " "))
-	b.WriteString("  local flavors=\"1.5 1.6x\"\n\n")
+	b.WriteString("  local flavors=\"1.5 1.6x\"\n")
+	fmt.Fprintf(&b, "  local resolutions=%q\n", strings.Join(video.PresetNames(), " "))
+	fmt.Fprintf(&b, "  local fpscaps=%q\n\n", strings.Join(video.FPSWords(), " "))
 	b.WriteString(`  # The command already on the line, if any: global flags before it are skipped,
   # and the ones that take a value skip that too.
   local i cmd=""
@@ -46,6 +49,14 @@ _vcod_completions() {
   case "$prev" in
     -F|--flavor)
       COMPREPLY=($(compgen -W "$flavors" -- "$cur")); return ;;
+    --res|-r)
+      COMPREPLY=($(compgen -W "$resolutions" -- "$cur")); return ;;
+    --maxfps|--fps)
+      COMPREPLY=($(compgen -W "$fpscaps" -- "$cur")); return ;;
+    --display)
+      COMPREPLY=($(compgen -W "window fullscreen borderless" -- "$cur")); return ;;
+    fps|maxfps)
+      if [ "$cmd" = display ]; then COMPREPLY=($(compgen -W "$fpscaps" -- "$cur")); return; fi ;;
     -n|-p|--port|--mode|-R)
       return ;;
   esac

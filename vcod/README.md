@@ -48,6 +48,23 @@ A binary with no source folder clones the repository into `~/.vcod/src` first.
 | `rcon <cmd>`, `status`, `logs` | Q3 out-of-band UDP (`getstatus`, `rcon`), plus the job logs and the server's `games_mp.log` / `console_mp_server.log` |
 | `flavors [make\|rebuild]` | `cod_rea/server/make_flavors.sh` |
 
+`vcod display` sets how the client opens, for both flavors:
+
+```sh
+vcod display                           # what the client starts with
+vcod display 1440p fullscreen fps 333  # resolution, display mode, fps cap, any mix
+vcod display borderless                # window | fullscreen | borderless
+vcod display fps unlocked              # 1–1000, or unlocked (the engine then runs at 1000)
+vcod display presets                   # desktop 720p 900p 1080p 1440p 4k uw1440 … (or any WxH)
+vcod play --res 1080p --window --maxfps 125   # override for one start
+```
+
+The settings are `CLIENT_RES`, `CLIENT_DISPLAY` and `CLIENT_MAXFPS` in the config. They
+become `r_mode -1` with `r_customwidth`/`r_customheight` (or `r_mode -2` for the
+desktop size), `r_fullscreen 0/1/2` and `com_maxfps`. Borderless always runs at the
+desktop's size. 1.6x servers check `com_maxfps` against 60–250. A running client keeps
+what it started with, so use `vcod client restart` after a change.
+
 There are two flavors, `1.5` (protocol 6, port 28960) and `1.6x` (cod1plus, protocol 10,
 port 28961). Pick one per command with `-F 1.6x` / `--16x`, set the default with
 `vcod config set FLAVOR 1.6x`, or type `flavor 1.6x` in the shell.

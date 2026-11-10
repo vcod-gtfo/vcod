@@ -20,6 +20,7 @@ import (
 	"vcod/internal/config"
 	"vcod/internal/jobs"
 	"vcod/internal/q3"
+	"vcod/internal/video"
 	"vcod/internal/ws"
 )
 
@@ -247,33 +248,45 @@ func WaitReady(ctx context.Context, addr string, job *jobs.Job, timeout time.Dur
 
 // ClientOpts is what a client is started with.
 type ClientOpts struct {
-	Flavor     config.Flavor
-	Build      *ws.Build
-	Connect    string
-	Fullscreen bool
-	Mode       int
-	Extra      []string
+	Flavor  config.Flavor
+	Build   *ws.Build
+	Connect string
+	Video   video.Settings
+	Extra   []string
 }
 
 // DefaultClient fills the options from the configuration.
 func DefaultClient(cfg *config.Config, f config.Flavor) ClientOpts {
+	// A bad value in the file falls back to its default here; vcod display and doctor
+	// report it.
+	v, _ := cfg.Video()
 	b := ws.LookupBuild(cfg.Get(config.KeyClientBuild))
 	if b == nil {
 		b = ws.LookupBuild("video")
 	}
 	return ClientOpts{
-		Flavor:     f,
-		Build:      b,
-		Fullscreen: cfg.Bool(config.KeyClientFull),
-		Mode:       cfg.Int(config.KeyClientMode, -1),
+		Flavor: f,
+		Build:  b,
+		Video:  v,
 	}
 }
 
-// ParseClientArgs reads "[host:port] [--headless|--video] [--fullscreen|--window]
-// [--mode N] [-- +set ...]" over defaults.
+// ParseClientArgs reads "[host:port] [--headless|--video] [--res R] [--window|
+// --fullscreen|--borderless] [--maxfps N] [--mode N] [-- +set ...]" over defaults.
 func ParseClientArgs(o ClientOpts, args []string) (ClientOpts, error) {
+	value := func(i int, what string) (string, error) {
+		if i+1 >= len(args) {
+			return "", fmt.Errorf("%s needs %s", args[i], what)
+		}
+		return args[i+1], nil
+	}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
+		// --flag=value is the same as --flag value.
+		if name, v, ok := strings.Cut(a, "="); ok && strings.HasPrefix(a, "--") && ValueFlags[name] {
+			args = append(args[:i:i], append([]string{name, v}, args[i+1:]...)...)
+			a = name
+		}
 		switch {
 		case a == "--":
 			o.Extra = append(o.Extra, args[i+1:]...)
@@ -283,19 +296,50 @@ func ParseClientArgs(o ClientOpts, args []string) (ClientOpts, error) {
 		case a == "--video":
 			o.Build = ws.LookupBuild("video")
 		case a == "--fullscreen" || a == "--fs":
-			o.Fullscreen = true
+			o.Video.Display = video.Fullscreen
 		case a == "--window" || a == "--windowed":
-			o.Fullscreen = false
-		case a == "--mode":
-			if i+1 >= len(args) {
-				return o, errors.New("--mode needs a number")
+			o.Video.Display = video.Window
+		case a == "--borderless":
+			o.Video.Display = video.Borderless
+		case a == "--display":
+			v, err := value(i, "window, fullscreen or borderless")
+			if err != nil {
+				return o, err
 			}
 			i++
-			n, err := strconv.Atoi(args[i])
-			if err != nil {
-				return o, fmt.Errorf("bad mode %q", args[i])
+			if o.Video.Display, err = video.ParseDisplay(v); err != nil {
+				return o, err
 			}
-			o.Mode = n
+		case a == "--res" || a == "-r":
+			v, err := value(i, "a preset or WIDTHxHEIGHT")
+			if err != nil {
+				return o, err
+			}
+			i++
+			if o.Video.Res, err = video.ParseRes(v); err != nil {
+				return o, err
+			}
+			o.Video.Mode = nil
+		case a == "--maxfps" || a == "--fps":
+			v, err := value(i, "a number (0 = uncapped)")
+			if err != nil {
+				return o, err
+			}
+			i++
+			if o.Video.MaxFPS, err = video.ParseFPS(v); err != nil {
+				return o, err
+			}
+		case a == "--mode":
+			v, err := value(i, "a number")
+			if err != nil {
+				return o, err
+			}
+			i++
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				return o, fmt.Errorf("bad mode %q", v)
+			}
+			o.Video.Mode = &n
 		case a == "--connect" || a == "-c":
 			if i+1 >= len(args) {
 				return o, errors.New("--connect needs host:port")
@@ -314,6 +358,14 @@ func ParseClientArgs(o ClientOpts, args []string) (ClientOpts, error) {
 	return o, nil
 }
 
+// ValueFlags are the client flags that take a value; play passes them, and their
+// values, through to the client.
+var ValueFlags = map[string]bool{"--res": true, "-r": true, "--display": true, "--maxfps": true, "--fps": true, "--mode": true}
+
+// SwitchFlags are the client flags that take no value.
+var SwitchFlags = map[string]bool{"--headless": true, "--video": true, "--fullscreen": true, "--fs": true,
+	"--window": true, "--windowed": true, "--borderless": true}
+
 // ClientArgs is the command line a client runs with.
 func ClientArgs(cfg *config.Config, w *ws.Workspace, o ClientOpts) []string {
 	args := []string{
@@ -323,13 +375,7 @@ func ClientArgs(cfg *config.Config, w *ws.Workspace, o ClientOpts) []string {
 		"+set", "dedicated", "0",
 		"+set", "net_ecosystem", string(o.Flavor),
 	}
-	if o.Build.Name == "video" {
-		full := "0"
-		if o.Fullscreen {
-			full = "1"
-		}
-		args = append(args, "+set", "r_fullscreen", full, "+set", "r_mode", strconv.Itoa(o.Mode))
-	}
+	args = append(args, o.Video.Cvars(o.Build.Name == "video")...)
 	if s := cfg.Get(config.KeyClientExtra); s != "" {
 		args = append(args, strings.Fields(s)...)
 	}

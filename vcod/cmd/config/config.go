@@ -12,6 +12,7 @@ import (
 	"vcod/internal/platform"
 	"vcod/internal/registry"
 	"vcod/internal/ui"
+	"vcod/internal/video"
 )
 
 var help = `Usage:
@@ -154,11 +155,11 @@ func set(ctx *app.Context, key, value string) int {
 		if !config.IsWorkspace(value) {
 			return ctx.Usage("%s has no cod_rea/ and flavors/", value)
 		}
-	case config.KeyPort15, config.KeyPort16x, config.KeyClientMode, config.KeyReadyTimeoutSec:
+	case config.KeyPort15, config.KeyPort16x, config.KeyReadyTimeoutSec:
 		if _, err := strconv.Atoi(value); err != nil {
 			return ctx.Usage("%s takes a number", key)
 		}
-	case config.KeyCheats, config.KeyClientFull, config.KeyAllowUnversion:
+	case config.KeyCheats, config.KeyAllowUnversion:
 		if value != "0" && value != "1" {
 			return ctx.Usage("%s is 0 or 1", key)
 		}
@@ -168,6 +169,27 @@ func set(ctx *app.Context, key, value string) int {
 		}
 	case config.KeyClientHome:
 		value = expand(value)
+	case config.KeyClientRes:
+		r, err := video.ParseRes(value)
+		if err != nil {
+			return ctx.Usage("%v", err)
+		}
+		value = r.Name
+	case config.KeyClientDisplay:
+		d, err := video.ParseDisplay(value)
+		if err != nil {
+			return ctx.Usage("%v", err)
+		}
+		value = string(d)
+	case config.KeyClientMaxFPS:
+		n, err := video.ParseFPS(value)
+		if err != nil {
+			return ctx.Usage("%v", err)
+		}
+		value = strconv.Itoa(n)
+		if n == 0 {
+			value = video.Unlocked
+		}
 	}
 	if err := config.Save(ctx.Cfg.Path, map[string]string{key: value}); err != nil {
 		return ctx.Fail(err)

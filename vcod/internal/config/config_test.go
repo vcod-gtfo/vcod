@@ -50,3 +50,28 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("unset or flag failed: %q %q", c.FileValue(KeyMap), c.Flavor)
 	}
 }
+
+func TestLegacyClientKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	if err := os.WriteFile(path, []byte("CLIENT_FULLSCREEN=1\nCLIENT_MODE=6\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{KeyClientRes, KeyClientDisplay, KeyClientMaxFPS} {
+		t.Setenv("VCOD_"+k, "")
+	}
+	c, err := LoadFrom(path, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := c.Video()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Display != "fullscreen" || v.Res.Name != "1024x768" || v.MaxFPS != 125 {
+		t.Fatalf("got %+v", v)
+	}
+	t.Setenv("VCOD_CLIENT_MAXFPS", "lots")
+	if v, err := c.Video(); err == nil || v.MaxFPS != 125 {
+		t.Fatalf("bad fps not reported: %+v %v", v, err)
+	}
+}
