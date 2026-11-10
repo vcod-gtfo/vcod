@@ -154,7 +154,8 @@ sh build.sh cross    # dist/vcod-{linux,darwin}-{amd64,arm64}
 sh build.sh hash     # the version a build would get
 ```
 
-CI (`.github/workflows/build.yml` at the workspace root) runs gofmt, vet, the tests,
+CI (`.github/workflows/build.yml` at the workspace root, started by hand from the
+Actions tab) runs gofmt, vet, the tests,
 a native build and the installer on ubuntu and macOS, and uploads the cross-compiled
 binaries.
 
