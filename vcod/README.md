@@ -56,6 +56,7 @@ vcod display 1440p fullscreen fps 333  # resolution, display mode, fps cap, any 
 vcod display borderless                # window | fullscreen | borderless
 vcod display fps unlocked              # 1–1000, or unlocked (the engine then runs at 1000)
 vcod display presets                   # desktop 720p 900p 1080p 1440p 4k uw1440 … (or any WxH)
+vcod display gpu nvidia                # auto (default) | nvidia | integrated
 vcod play --res 1080p --window --maxfps 125   # override for one start
 ```
 
@@ -64,6 +65,14 @@ become `r_mode -1` with `r_customwidth`/`r_customheight` (or `r_mode -2` for the
 desktop size), `r_fullscreen 0/1/2` and `com_maxfps`. Borderless always runs at the
 desktop's size. 1.6x servers check `com_maxfps` against 60–250. A running client keeps
 what it started with, so use `vcod client restart` after a change.
+
+`CLIENT_GPU` picks the graphics chip on a hybrid laptop (NVIDIA Optimus), where the
+integrated chip drives the screen. `auto` asks for the NVIDIA card when the driver sees
+one next to another chip. It does this through PRIME render offload:
+`__NV_PRIME_RENDER_OFFLOAD=1`, plus `__GLX_VENDOR_LIBRARY_NAME=nvidia` for SDL's X11
+driver or `__EGL_VENDOR_LIBRARY_FILENAMES` set to the NVIDIA vendor file for its Wayland
+driver. `vcod client` prints the `GL_RENDERER` the client got and warns when it isn't the
+one asked for. `vcod display --json` shows the variables it sets.
 
 There are two flavors, `1.5` (protocol 6, port 28960) and `1.6x` (cod1plus, protocol 10,
 port 28961). Pick one per command with `-F 1.6x` / `--16x`, set the default with

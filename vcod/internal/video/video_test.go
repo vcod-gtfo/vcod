@@ -1,6 +1,8 @@
 package video
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -86,5 +88,66 @@ func TestNotes(t *testing.T) {
 func TestResFromMode(t *testing.T) {
 	if ResFromMode(-2) != "desktop" || ResFromMode(6) != "1024x768" || ResFromMode(-1) != "" || ResFromMode(99) != "" {
 		t.Fatal(ResFromMode(6))
+	}
+}
+
+func TestGPU(t *testing.T) {
+	hybrid := Probe{NvidiaModel: "NVIDIA RTX 500", Hybrid: true, EGLNvidia: "/x/10_nvidia.json", EGLMesa: "/x/50_mesa.json"}
+	only := Probe{NvidiaModel: "NVIDIA RTX 4090"}
+	none := Probe{Hybrid: true}
+	if g := GPUAuto.Resolve(hybrid); g != GPUNvidia {
+		t.Fatalf("auto on hybrid = %s", g)
+	}
+	if g := GPUAuto.Resolve(only); g != GPUAuto {
+		t.Fatalf("auto on nvidia-only = %s", g)
+	}
+	if g := GPUAuto.Resolve(none); g != GPUAuto || g.Env(none) != nil {
+		t.Fatalf("auto without nvidia = %s %v", g, g.Env(none))
+	}
+	env := strings.Join(GPUNvidia.Env(hybrid), " ")
+	for _, want := range []string{"__NV_PRIME_RENDER_OFFLOAD=1", "__GLX_VENDOR_LIBRARY_NAME=nvidia", "__EGL_VENDOR_LIBRARY_FILENAMES=/x/10_nvidia.json"} {
+		if !strings.Contains(env, want) {
+			t.Fatalf("nvidia env %q lacks %s", env, want)
+		}
+	}
+	if env := strings.Join(GPUIntegrated.Env(hybrid), " "); !strings.Contains(env, "/x/50_mesa.json") || !strings.Contains(env, "__NV_PRIME_RENDER_OFFLOAD=0") {
+		t.Fatalf("integrated env %q", env)
+	}
+	for in, want := range map[string]GPU{"dgpu": GPUNvidia, "NVIDIA": GPUNvidia, "igpu": GPUIntegrated, "": GPUAuto} {
+		if g, err := ParseGPU(in); err != nil || g != want {
+			t.Fatalf("ParseGPU(%q) = %s, %v", in, g, err)
+		}
+	}
+	if IsGPUWord("auto") || !IsGPUWord("nvidia") || IsGPUWord("1080p") {
+		t.Fatal("IsGPUWord")
+	}
+	if !RendererIsNvidia("NVIDIA RTX 500 Ada Generation Laptop GPU/PCIe/SSE2") || RendererIsNvidia("Mesa Intel(R) Arc(tm) Graphics (MTL)") {
+		t.Fatal("RendererIsNvidia")
+	}
+}
+
+func TestDetectFake(t *testing.T) {
+	root := t.TempDir()
+	mk := func(p, body string) {
+		full := filepath.Join(root, p)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk("proc/0000:01:00.0/information", "Model: \t\t NVIDIA RTX 500 Ada Generation Laptop GPU\nIRQ: 216\n")
+	mk("drm/card0/device/vendor", "0x10de\n")
+	mk("drm/card1/device/vendor", "0x8086\n")
+	mk("drm/card1-eDP-1/status", "connected\n")
+	mk("egl/10_nvidia.json", "{}")
+	mk("egl/50_mesa.json", "{}")
+	oldP, oldD, oldE := procNvidia, sysDRM, eglVendorDs
+	defer func() { procNvidia, sysDRM, eglVendorDs = oldP, oldD, oldE }()
+	procNvidia, sysDRM, eglVendorDs = filepath.Join(root, "proc"), filepath.Join(root, "drm"), []string{filepath.Join(root, "egl")}
+	p := Detect()
+	if p.NvidiaModel != "NVIDIA RTX 500 Ada Generation Laptop GPU" || !p.Hybrid || filepath.Base(p.EGLNvidia) != "10_nvidia.json" || filepath.Base(p.EGLMesa) != "50_mesa.json" {
+		t.Fatalf("Detect = %+v", p)
 	}
 }

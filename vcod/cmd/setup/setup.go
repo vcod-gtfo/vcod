@@ -123,6 +123,20 @@ func run(ctx *app.Context, args []string) int {
 			out.Warn("%v", err)
 		}
 	}
+	if probe := video.Detect(); probe.NvidiaModel != "" {
+		for {
+			v, err := in.Ask("GPU (auto, nvidia, integrated):", string(cur.GPU))
+			if err != nil {
+				return cancelled(ctx, err)
+			}
+			if g, err := video.ParseGPU(v); err == nil {
+				updates[config.KeyClientGPU] = string(g)
+				break
+			} else {
+				out.Warn("%v", err)
+			}
+		}
+	}
 	for _, k := range config.LegacyKeys {
 		if cfg.FileValue(k) != "" {
 			updates[k] = ""

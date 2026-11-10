@@ -190,6 +190,12 @@ func set(ctx *app.Context, key, value string) int {
 		if n == 0 {
 			value = video.Unlocked
 		}
+	case config.KeyClientGPU:
+		g, err := video.ParseGPU(value)
+		if err != nil {
+			return ctx.Usage("%v", err)
+		}
+		value = string(g)
 	}
 	if err := config.Save(ctx.Cfg.Path, map[string]string{key: value}); err != nil {
 		return ctx.Fail(err)

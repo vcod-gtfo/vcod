@@ -55,6 +55,10 @@ _vcod_completions() {
       COMPREPLY=($(compgen -W "$fpscaps" -- "$cur")); return ;;
     --display)
       COMPREPLY=($(compgen -W "window fullscreen borderless" -- "$cur")); return ;;
+    --gpu)
+      COMPREPLY=($(compgen -W "auto nvidia integrated" -- "$cur")); return ;;
+    gpu)
+      if [ "$cmd" = display ]; then COMPREPLY=($(compgen -W "auto nvidia integrated" -- "$cur")); return; fi ;;
     fps|maxfps)
       if [ "$cmd" = display ]; then COMPREPLY=($(compgen -W "$fpscaps" -- "$cur")); return; fi ;;
     -n|-p|--port|--mode|-R)

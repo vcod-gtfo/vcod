@@ -230,6 +230,7 @@ type Settings struct {
 	Display Display
 	MaxFPS  int
 	Mode    *int
+	GPU     GPU
 }
 
 // Cvars are the +set arguments for a client. Window settings apply only to a client with
@@ -260,7 +261,11 @@ func (s Settings) Summary() string {
 	} else if s.Display == Borderless {
 		res = Desktop
 	}
-	return res + " · " + string(s.Display) + " · " + FPSString(s.MaxFPS)
+	out := res + " · " + string(s.Display) + " · " + FPSString(s.MaxFPS)
+	if s.GPU != "" && s.GPU != GPUAuto {
+		out += " · " + string(s.GPU) + " gpu"
+	}
+	return out
 }
 
 // Notes are the caveats a combination deserves.

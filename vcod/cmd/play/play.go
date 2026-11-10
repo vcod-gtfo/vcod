@@ -32,7 +32,7 @@ does both:
 
 Server options: --port N, --cheats, --pure (see vcod help server).
 Client options: --headless, --video, --res R, --window, --fullscreen, --borderless,
---maxfps N, --mode N, --build (see vcod help client; vcod display saves the defaults). Both keep running after play returns: vcod stop ends them.`
+--maxfps N, --gpu G, --mode N, --build (see vcod help client; vcod display saves the defaults). Both keep running after play returns: vcod stop ends them.`
 
 func init() {
 	registry.Register(registry.Command{
@@ -48,7 +48,7 @@ func init() {
 				return v
 			}
 			return append([]string{"--cheats", "--pure", "--headless", "--res", "--window", "--fullscreen", "--borderless",
-				"--maxfps", "--build"}, append(game.Maps, game.Gametypes...)...)
+				"--maxfps", "--gpu", "--build"}, append(game.Maps, game.Gametypes...)...)
 		},
 		Run: run,
 	})

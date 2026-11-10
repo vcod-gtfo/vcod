@@ -329,6 +329,19 @@ func ParseClientArgs(o ClientOpts, args []string) (ClientOpts, error) {
 			if o.Video.MaxFPS, err = video.ParseFPS(v); err != nil {
 				return o, err
 			}
+		case a == "--gpu":
+			v, err := value(i, "auto, nvidia or integrated")
+			if err != nil {
+				return o, err
+			}
+			i++
+			if o.Video.GPU, err = video.ParseGPU(v); err != nil {
+				return o, err
+			}
+		case a == "--nvidia":
+			o.Video.GPU = video.GPUNvidia
+		case a == "--integrated" || a == "--igpu":
+			o.Video.GPU = video.GPUIntegrated
 		case a == "--mode":
 			v, err := value(i, "a number")
 			if err != nil {
@@ -360,11 +373,12 @@ func ParseClientArgs(o ClientOpts, args []string) (ClientOpts, error) {
 
 // ValueFlags are the client flags that take a value; play passes them, and their
 // values, through to the client.
-var ValueFlags = map[string]bool{"--res": true, "-r": true, "--display": true, "--maxfps": true, "--fps": true, "--mode": true}
+var ValueFlags = map[string]bool{"--res": true, "-r": true, "--display": true, "--maxfps": true, "--fps": true, "--mode": true,
+	"--gpu": true}
 
 // SwitchFlags are the client flags that take no value.
 var SwitchFlags = map[string]bool{"--headless": true, "--video": true, "--fullscreen": true, "--fs": true,
-	"--window": true, "--windowed": true, "--borderless": true}
+	"--window": true, "--windowed": true, "--borderless": true, "--nvidia": true, "--integrated": true, "--igpu": true}
 
 // ClientArgs is the command line a client runs with.
 func ClientArgs(cfg *config.Config, w *ws.Workspace, o ClientOpts) []string {
@@ -404,7 +418,33 @@ func StartClient(cfg *config.Config, w *ws.Workspace, o ClientOpts) (*jobs.Job, 
 			Name: ClientJob(o.Flavor), Kind: "client", Flavor: string(o.Flavor),
 			Args: ClientArgs(cfg, w, o), Dir: w.BuildDir(o.Build), Connect: o.Connect,
 		},
+		Env: ClientEnv(o, video.Detect()),
 	})
+}
+
+// ClientEnv is the environment a client gets on top of vcod's own: the GPU selection,
+// for the video build only (the headless one has no GL).
+func ClientEnv(o ClientOpts, p video.Probe) []string {
+	if o.Build == nil || o.Build.Name != "video" {
+		return nil
+	}
+	return o.Video.GPU.Resolve(p).Env(p)
+}
+
+// ClientRenderer is the GL_RENDERER the client's log reports, "" before the renderer
+// has started (or for the headless build).
+func ClientRenderer(f config.Flavor) string {
+	b, err := os.ReadFile(jobs.LogPath(ClientJob(f)))
+	if err != nil {
+		return ""
+	}
+	r := ""
+	for _, line := range strings.Split(string(b), "\n") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "GL_RENDERER:"); ok {
+			r = strings.TrimSpace(v)
+		}
+	}
+	return r
 }
 
 // StopClient stops a flavor's client job.

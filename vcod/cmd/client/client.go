@@ -31,6 +31,8 @@ Options:
   --fullscreen        exclusive fullscreen      set with: vcod display)
   --borderless        borderless over the desktop
   --maxfps N          fps cap: 1–1000 (125, 250, 333 …) or unlocked
+  --gpu G             auto, nvidia or integrated (default CLIENT_GPU: auto, which
+                      renders on the NVIDIA card of a hybrid laptop); also --nvidia
   --mode N            a raw r_mode, instead of --res
   --build             build the client first when its sources are newer
   -- +set k v        anything after -- goes to the client's command line
@@ -66,7 +68,7 @@ func clientCandidates(prev []string) []string {
 		return v
 	}
 	return []string{"start", "stop", "restart", "--menu", "--headless", "--video", "--res", "--window", "--fullscreen",
-		"--borderless", "--maxfps", "--mode", "--build"}
+		"--borderless", "--maxfps", "--gpu", "--mode", "--build"}
 }
 
 // FlagValues are the candidates for the value of a client flag that ends prev, or nil.
@@ -81,6 +83,8 @@ func FlagValues(prev []string) []string {
 		return video.FPSWords()
 	case "--display":
 		return []string{"window", "fullscreen", "borderless"}
+	case "--gpu":
+		return []string{"auto", "nvidia", "integrated"}
 	}
 	return nil
 }
@@ -172,7 +176,38 @@ func Start(ctx *app.Context, args []string) int {
 		}
 		return 1
 	}
+	if o.Build.Name == "video" {
+		reportRenderer(ctx, j, o)
+	}
 	return 0
+}
+
+// reportRenderer waits briefly for the client's renderer to start and says which GPU
+// it got, warning when that is not the one asked for.
+func reportRenderer(ctx *app.Context, j *jobs.Job, o game.ClientOpts) {
+	probe := video.Detect()
+	want := o.Video.GPU.Resolve(probe)
+	deadline := time.Now().Add(6 * time.Second)
+	r := ""
+	for r == "" && time.Now().Before(deadline) && j.Running() {
+		if r = game.ClientRenderer(o.Flavor); r == "" {
+			select {
+			case <-ctx.Ctx.Done():
+				return
+			case <-time.After(250 * time.Millisecond):
+			}
+		}
+	}
+	switch {
+	case r == "":
+		ctx.Out.Note("gpu %s  ·  the renderer has not reported yet (vcod logs client)", o.Video.GPU.Describe(probe))
+	case want == video.GPUNvidia && !video.RendererIsNvidia(r):
+		ctx.Out.Warn("asked for the NVIDIA card, but the client renders on %s", r)
+	case want == video.GPUIntegrated && video.RendererIsNvidia(r):
+		ctx.Out.Warn("asked for the integrated chip, but the client renders on %s", r)
+	default:
+		ctx.Out.OK("renderer %s", ui.StyleWhite.Render(r))
+	}
 }
 
 // ensureBuilt warns about a missing or stale client, or builds it when asked.

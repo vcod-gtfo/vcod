@@ -68,6 +68,7 @@ const (
 	KeyClientRes       = "CLIENT_RES"
 	KeyClientDisplay   = "CLIENT_DISPLAY"
 	KeyClientMaxFPS    = "CLIENT_MAXFPS"
+	KeyClientGPU       = "CLIENT_GPU"
 	KeyClientExtra     = "CLIENT_EXTRA"
 	KeyAllowUnversion  = "ALLOW_UNVERSIONED"
 	KeyReadyTimeoutSec = "READY_TIMEOUT"
@@ -89,6 +90,7 @@ var Keys = []struct{ Key, Default, Help string }{
 	{KeyClientRes, "720p", "video client resolution: a preset (vcod display presets) or WIDTHxHEIGHT"},
 	{KeyClientDisplay, "window", "video client display: window, fullscreen or borderless"},
 	{KeyClientMaxFPS, "125", "com_maxfps for every client: 1–1000 (125, 250, 333 …), or unlocked (0)"},
+	{KeyClientGPU, "auto", "video client GPU: auto (NVIDIA on hybrid laptops), nvidia or integrated"},
 	{KeyClientExtra, "", "more +set arguments for every client"},
 	{KeyAllowUnversion, "1", "1.6x server: let clients without a 1.6X build string in"},
 	{KeyReadyTimeoutSec, "180", "seconds play waits for a server to answer"},
@@ -193,7 +195,12 @@ func (c *Config) Video() (video.Settings, error) {
 		errs = append(errs, KeyClientMaxFPS+": "+err.Error())
 		fps, _ = video.ParseFPS(defaultOf(KeyClientMaxFPS))
 	}
-	s := video.Settings{Res: res, Display: disp, MaxFPS: fps}
+	gpu, err := video.ParseGPU(c.Get(KeyClientGPU))
+	if err != nil {
+		errs = append(errs, KeyClientGPU+": "+err.Error())
+		gpu = video.GPUAuto
+	}
+	s := video.Settings{Res: res, Display: disp, MaxFPS: fps, GPU: gpu}
 	if len(errs) > 0 {
 		return s, errors.New(strings.Join(errs, "; "))
 	}
