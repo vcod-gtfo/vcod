@@ -1,0 +1,8 @@
+# The host build, named like the command.
+/vcod
+/dist/
+# The container builder's caches (./build.sh).
+/.gocache/
+# Installer records, in case an install tree is mistaken for the sources.
+.version
+.source
