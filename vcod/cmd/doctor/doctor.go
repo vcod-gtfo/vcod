@@ -57,17 +57,19 @@ func run1(ctx *app.Context, args []string) int {
 	out.Info("%s (%s), vcod %s", platform.OS(), platform.Arch(), ctx.Version)
 	if p, ok := run.LookPath("podman"); ok {
 		out.OK("podman at %s", p)
-		if exec.Command("podman", "image", "exists", "cod_rea-server").Run() == nil {
+		if err := game.PodmanReady(); err != nil {
+			fail("%v", err)
+		} else if exec.Command("podman", "image", "exists", "cod_rea-server").Run() == nil {
 			out.OK("image cod_rea-server present")
 		} else {
 			out.Warn("image cod_rea-server not built yet — the first server start builds it (takes a minute)")
 		}
 	} else {
-		fail("podman not found — the servers run in it (dnf install podman)")
+		fail("podman not found — the servers run in it (%s)", platform.InstallHint("podman"))
 	}
 	for _, t := range []struct{ bin, why string }{
 		{"cmake", "vcod build"}, {"ninja", "vcod build"}, {"ctest", "vcod test ctest"},
-		{"xdg-open", "vcod screens open"},
+		{platform.OpenCommand(), "vcod screens open"},
 	} {
 		if p, ok := run.LookPath(t.bin); ok {
 			out.OK("%s at %s", t.bin, p)

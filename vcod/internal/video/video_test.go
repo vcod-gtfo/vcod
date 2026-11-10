@@ -92,6 +92,8 @@ func TestResFromMode(t *testing.T) {
 }
 
 func TestGPU(t *testing.T) {
+	defer func(o bool) { offload = o }(offload)
+	offload = true
 	hybrid := Probe{NvidiaModel: "NVIDIA RTX 500", Hybrid: true, EGLNvidia: "/x/10_nvidia.json", EGLMesa: "/x/50_mesa.json"}
 	only := Probe{NvidiaModel: "NVIDIA RTX 4090"}
 	none := Probe{Hybrid: true}

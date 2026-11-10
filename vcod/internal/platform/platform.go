@@ -131,3 +131,30 @@ func LookPath(bin string) (string, bool) {
 	p, err := exec.LookPath(bin)
 	return p, err == nil
 }
+
+// OpenCommand is the program that opens a file in the desktop's default app.
+func OpenCommand() string {
+	if IsMacOS() {
+		return "open"
+	}
+	return "xdg-open"
+}
+
+// InstallHint is how to install a package here, for error messages: Homebrew on macOS,
+// the distribution's package manager on Linux.
+func InstallHint(pkg string) string {
+	if IsMacOS() {
+		return "brew install " + pkg
+	}
+	if _, err := exec.LookPath("dnf"); err == nil {
+		return "dnf install " + pkg
+	}
+	if _, err := exec.LookPath("apt-get"); err == nil {
+		return "apt-get install " + pkg
+	}
+	return "install " + pkg + " with the system's package manager"
+}
+
+// PodmanVM reports whether podman runs its containers in a Linux VM (podman machine)
+// instead of on this kernel: macOS (and Windows).
+func PodmanVM() bool { return runtime.GOOS != "linux" }

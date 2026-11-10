@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -25,6 +26,12 @@ const (
 	// GPUIntegrated keeps the client on the chip that drives the screen.
 	GPUIntegrated GPU = "integrated"
 )
+
+// offload is whether this system selects the GPU through the environment: Linux's
+// glvnd and PRIME. macOS picks the GPU itself (and its Macs have no NVIDIA card), so
+// there every choice resolves to auto and the client gets no extra environment.
+// Tests set it to exercise the Linux path anywhere.
+var offload = runtime.GOOS == "linux"
 
 // GPUs lists the choices, for completion and help.
 var GPUs = []GPU{GPUAuto, GPUNvidia, GPUIntegrated}
@@ -116,6 +123,9 @@ func Detect() Probe {
 // auto when nothing should be set (no NVIDIA card, or one that drives the screen
 // itself).
 func (g GPU) Resolve(p Probe) GPU {
+	if !offload {
+		return GPUAuto
+	}
 	if g != GPUAuto {
 		return g
 	}
@@ -169,6 +179,9 @@ func (g GPU) Describe(p Probe) string {
 	}
 	if g == GPUAuto {
 		return "auto → " + what
+	}
+	if !offload {
+		return string(g) + " (ignored: GPU selection is Linux only) → " + what
 	}
 	return what
 }

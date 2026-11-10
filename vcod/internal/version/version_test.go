@@ -11,8 +11,10 @@ import (
 // recomputes it in Go: the two must agree or every install reports an update.
 func TestSourceHashMatchesBuildScript(t *testing.T) {
 	root, _ := filepath.Abs("../..")
-	if _, err := exec.LookPath("sha256sum"); err != nil {
-		t.Skip("no sha256sum")
+	_, errSum := exec.LookPath("sha256sum")
+	_, errShasum := exec.LookPath("shasum")
+	if errSum != nil && errShasum != nil {
+		t.Skip("no sha256sum or shasum")
 	}
 	out, err := exec.Command("sh", filepath.Join(root, "build.sh"), "hash").Output()
 	if err != nil {

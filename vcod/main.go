@@ -22,6 +22,7 @@ import (
 	_ "vcod/cmd/doctor"
 	_ "vcod/cmd/flavors"
 	_ "vcod/cmd/install"
+	_ "vcod/cmd/lan"
 	_ "vcod/cmd/logs"
 	_ "vcod/cmd/play"
 	_ "vcod/cmd/rcon"

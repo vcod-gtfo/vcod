@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"vcod/internal/app"
+	"vcod/internal/platform"
 	"vcod/internal/registry"
 	"vcod/internal/report"
 	"vcod/internal/run"
@@ -86,12 +87,12 @@ func runBuild(ctx *app.Context, args []string) int {
 func Build(ctx *app.Context, w *ws.Workspace, builds []*ws.Build, clean bool) int {
 	cmake, ok := run.LookPath("cmake")
 	if !ok {
-		ctx.Errorf("cmake not found (looked on PATH and in ~/.local/bin)")
+		ctx.Errorf("cmake not found (looked on PATH and in ~/.local/bin): %s", platform.InstallHint("cmake"))
 		return 1
 	}
 	ninja, ok := run.LookPath("ninja")
 	if !ok {
-		ctx.Errorf("ninja not found (looked on PATH and in ~/.local/bin)")
+		ctx.Errorf("ninja not found (looked on PATH and in ~/.local/bin): %s", platform.InstallHint("ninja"))
 		return 1
 	}
 	for _, b := range builds {

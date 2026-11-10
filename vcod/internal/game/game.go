@@ -19,6 +19,7 @@ import (
 
 	"vcod/internal/config"
 	"vcod/internal/jobs"
+	"vcod/internal/platform"
 	"vcod/internal/q3"
 	"vcod/internal/video"
 	"vcod/internal/ws"
@@ -139,14 +140,28 @@ func ContainerState(name string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// PodmanReady checks podman can run the servers' i386 container: that it is installed
+// and, where containers run in podman's Linux VM (macOS), that the VM is up.
+func PodmanReady() error {
+	if _, err := exec.LookPath("podman"); err != nil {
+		return fmt.Errorf("podman is not installed; the servers run in its i386 container (%s)", platform.InstallHint("podman"))
+	}
+	if platform.PodmanVM() {
+		if err := exec.Command("podman", "info", "--format", "{{.Host.Arch}}").Run(); err != nil {
+			return errors.New("podman's Linux VM is not running: podman machine init (once), then podman machine start")
+		}
+	}
+	return nil
+}
+
 // StartServer launches a server flavor as a background job.
 func StartServer(cfg *config.Config, w *ws.Workspace, o ServerOpts) (*jobs.Job, error) {
 	dir := w.ServerDir(string(o.Flavor))
 	if _, err := os.Stat(filepath.Join(dir, "cod_lnxded")); err != nil {
 		return nil, fmt.Errorf("no server flavor at %s — build it with: vcod flavors make", dir)
 	}
-	if _, err := exec.LookPath("podman"); err != nil {
-		return nil, errors.New("podman is not installed; the servers run in its i386 container")
+	if err := PodmanReady(); err != nil {
+		return nil, err
 	}
 	name := ServerJob(o.Flavor)
 	if j := jobs.Get(name); j.Running() {

@@ -14,6 +14,7 @@ import (
 
 	"vcod/internal/app"
 	"vcod/internal/config"
+	"vcod/internal/platform"
 	"vcod/internal/registry"
 	"vcod/internal/report"
 	"vcod/internal/ui"
@@ -22,7 +23,7 @@ import (
 const help = `Usage:
   vcod screens               the 15 newest images: cod_rea/work/screens and the clients' homes
   vcod screens -n 40         more
-  vcod screens open          open the newest in the desktop's image viewer (xdg-open)
+  vcod screens open          open the newest in the desktop's image viewer (xdg-open, macOS open)
   vcod screens open 3        the third newest
   vcod screens open fx       the newest whose name contains fx
 
@@ -84,7 +85,7 @@ func run(ctx *app.Context, args []string) int {
 			ctx.Errorf("no screenshot matches %q", pick)
 			return 1
 		}
-		cmd := exec.Command("xdg-open", s.path)
+		cmd := exec.Command(platform.OpenCommand(), s.path)
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 		if err := cmd.Start(); err != nil {
 			return ctx.Fail(err)

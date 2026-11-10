@@ -8,17 +8,38 @@ one static Go binary (Bubble Tea, Bubbles, Lip Gloss).
 - Every command also runs on its own (`vcod status --json`, `vcod play`, …). That
   is how scripts and agents use it.
 
+It runs on Linux and macOS (x86-64 and arm64).
+
 ## Install
 
+One line, on Linux or macOS:
+
 ```sh
-sh vcod/build.sh install     # builds in a golang:1.27-alpine podman container, then installs
+curl -fsSL https://raw.githubusercontent.com/hatspencer/vcod/main/install.sh | bash
 ```
+
+[`install.sh`](../install.sh) clones the workspace to `~/vcod` (or pulls it when it is
+already there), builds vcod and installs it. It needs `git` and either Go or podman,
+installs nothing else and never uses sudo. `VCOD_DIR`, `VCOD_REPO`, `VCOD_BRANCH`,
+`VCOD_BUILD` and `VCOD_NO_RC=1` change what it does (see the script's header). The
+raw URL only works while the repository is public; for a private one, clone it and run
+the script from the checkout: `bash install.sh`.
+
+From a checkout:
+
+```sh
+sh vcod/build.sh install     # build (Go in podman, or the host's Go), then install
+```
+
+`build.sh` runs Go in a `golang:1.27-alpine` podman container when podman is installed,
+so Go isn't needed. Without podman it uses the host's Go (on a Mac: `brew install go`).
+`VCOD_BUILD=native` or `VCOD_BUILD=podman` picks one explicitly.
 
 This installs `~/.vcod/vcod`, the `~/.local/bin/vcod` symlink, bash/zsh
 completions, and a record of the source folder so that `vcod update` can rebuild.
 An old `codctl` install is carried over: its config, jobs and client homes move to the
 vcod folders, and `~/.codctl`, its symlink and its rc lines are removed.
-Go does not need to be installed. Without installing, `vcod/vcod` works from the
+Without installing, `vcod/vcod` works from the
 source folder after `sh vcod/build.sh build`.
 
 ## Updating
@@ -43,10 +64,47 @@ A binary with no source folder clones the repository into `~/.vcod/src` first.
 | `server start [map] [gt]` | `cod_rea/server/run.sh flavors/server-<f> map gt` as a detached job (podman container `cod_rea_server_<f>`), started with `rconPassword` from the config. It waits until the server answers `getstatus`. |
 | `client [host:port]` | `cod_rea/build-video/cod_client +set fs_basepath flavors/client-<f> +set fs_homepath ~/.local/share/vcod/home-<f> …` as a detached job. It auto-joins this flavor's local server when that server answers. |
 | `play [map] [gt]` | `server start`, or an rcon map switch if the server is already up, then `client` joined to it. This takes the place of a listen server, which the port does not have. |
+| `lan [list\|join N]` | a `getinfo` broadcast to ports 28960–28963 on every network (the game's own Local tab), listing who answers; `join` starts the client whose protocol the server speaks (6 → 1.5, 10 → 1.6x) |
 | `build [headless\|video]` | cmake configure (first time only) and `ninja -C cod_rea/build[-video]` |
 | `test [name]` | ctest in `cod_rea/build`, or `sh tools/<name>.sh` from `cod_rea/` |
 | `rcon <cmd>`, `status`, `logs` | Q3 out-of-band UDP (`getstatus`, `rcon`), plus the job logs and the server's `games_mp.log` / `console_mp_server.log` |
 | `flavors [make\|rebuild]` | `cod_rea/server/make_flavors.sh` |
+
+## LAN games
+
+```sh
+vcod lan                     # servers answering on the local network, numbered
+vcod lan --json              # the same for scripts
+vcod lan join 2              # join number 2 (or: vcod lan join harbor, by name/map/address)
+vcod lan join --headless     # with one server there, join it; client options pass through
+vcod lan --add 10.0.0.7      # also ask a server a broadcast can't reach (another subnet, VPN)
+```
+
+The scan broadcasts to `255.255.255.255` and to each interface's own broadcast address,
+since macOS sends the first only through its primary interface. A server on this
+machine shows once, marked "this machine", and is joined over 127.0.0.1. The client
+flavor comes from the server's protocol, whatever `-F` says. Other machines find a vcod
+server as long as its UDP port isn't firewalled (podman publishes it on every
+interface): on Fedora, `sudo firewall-cmd --add-port=28960-28963/udp`. On macOS, allow
+the incoming connection when asked.
+
+## macOS
+
+Everything here works on a Mac, with these differences:
+
+- Install the tools with Homebrew: `brew install go cmake ninja sdl2 podman`.
+- The servers are Linux i386 binaries, so podman runs them in its Linux VM:
+  `podman machine init` once, then `podman machine start` after each reboot.
+  `vcod doctor` and `vcod server start` say when the VM is down. On Apple Silicon the
+  container is emulated, so it is slower. To only play, join a server on another
+  machine with `vcod lan join` or `vcod client host:port`.
+- `CLIENT_GPU` does nothing (macOS picks the GPU itself), and `screens open` uses
+  `open` instead of `xdg-open`.
+- `flavors make` clones files with `cp -c` on APFS instead of `--reflink`.
+
+`docs/macos.md` in the workspace tracks what has and hasn't been tried on a real Mac.
+
+## Display
 
 `vcod display` sets how the client opens, for both flavors:
 
@@ -66,7 +124,7 @@ desktop size), `r_fullscreen 0/1/2` and `com_maxfps`. Borderless always runs at 
 desktop's size. 1.6x servers check `com_maxfps` against 60–250. A running client keeps
 what it started with, so use `vcod client restart` after a change.
 
-`CLIENT_GPU` picks the graphics chip on a hybrid laptop (NVIDIA Optimus), where the
+`CLIENT_GPU` picks the graphics chip on a Linux hybrid laptop (NVIDIA Optimus), where the
 integrated chip drives the screen. `auto` asks for the NVIDIA card when the driver sees
 one next to another chip. It does this through PRIME render offload:
 `__NV_PRIME_RENDER_OFFLOAD=1`, plus `__GLX_VENDOR_LIBRARY_NAME=nvidia` for SDL's X11
@@ -90,10 +148,15 @@ need `--write` (in the shell, ctrl+x).
 ## Develop
 
 ```sh
-sh build.sh check    # gofmt, go vet, go test (in podman)
+sh build.sh check    # gofmt, go vet, go test (podman, or VCOD_BUILD=native)
 sh build.sh build    # ./vcod, stamped with the source hash
+sh build.sh cross    # dist/vcod-{linux,darwin}-{amd64,arm64}
 sh build.sh hash     # the version a build would get
 ```
+
+CI (`.github/workflows/build.yml` at the workspace root) runs gofmt, vet, the tests,
+a native build and the installer on ubuntu and macOS, and uploads the cross-compiled
+binaries.
 
 The version is the first 7 hex digits of a sha256 over the Go sources rather than a git
 commit, so a build with local edits gets its own name. `internal/version` computes the same hash in Go so that
@@ -106,7 +169,7 @@ Layout:
 - `internal/cli`: the dispatcher and global flags.
 - `internal/game`: servers, clients and arg parsing.
 - `internal/jobs`: detached processes.
-- `internal/q3`: the UDP protocol.
+- `internal/q3`: the UDP protocol, and the LAN scan (`lan.go`).
 - `internal/ws`: the workspace layout, build staleness and test discovery.
 - `cmd/shell`: the TUI.
 
