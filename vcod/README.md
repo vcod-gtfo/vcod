@@ -154,10 +154,8 @@ sh build.sh cross    # dist/vcod-{linux,darwin}-{amd64,arm64}
 sh build.sh hash     # the version a build would get
 ```
 
-CI (`.github/workflows/build.yml` at the workspace root, started by hand from the
-Actions tab) runs gofmt, vet, the tests,
-a native build and the installer on ubuntu and macOS, and uploads the cross-compiled
-binaries.
+There is no CI: check a change with `sh build.sh check`, and that it still builds for
+macOS with `sh build.sh cross`.
 
 The version is the first 7 hex digits of a sha256 over the Go sources rather than a git
 commit, so a build with local edits gets its own name. `internal/version` computes the same hash in Go so that
