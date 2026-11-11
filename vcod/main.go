@@ -21,6 +21,7 @@ import (
 	_ "vcod/cmd/display"
 	_ "vcod/cmd/doctor"
 	_ "vcod/cmd/flavors"
+	_ "vcod/cmd/get"
 	_ "vcod/cmd/install"
 	_ "vcod/cmd/lan"
 	_ "vcod/cmd/logs"

@@ -42,6 +42,23 @@ vcod folders, and `~/.codctl`, its symlink and its rc lines are removed.
 Without installing, `vcod/vcod` works from the
 source folder after `sh vcod/build.sh build`.
 
+## Getting the client or the server
+
+A fresh checkout has the code only. `vcod get` fetches and builds the rest:
+
+```sh
+vcod get                               # what each side needs, and what is here
+vcod get client --from ~/Games/CoD     # copy your CoD 1.5 install to cod/, then everything to play
+vcod get client 1.6x                   # + the COD1.6X 1.6.12 release, flavors/client-1.6x, cod_client
+vcod get server all                    # the Linux 1.5 server, cod1plus for 1.6x, both server flavors
+```
+
+Downloads are pinned by SHA-256 and kept in `cod_rea/vendor/`: the 2004-12-21 Linux server
+build from treefort.icculus.org and the COD1.6X release from github.com/cod1plus/client. The
+cod1plus server source is cloned into `cod_rea/refs/` at the tested commit. The retail game
+can't be downloaded: it comes from your own install, patched to 1.5. Only missing parts
+are made; nothing existing is replaced.
+
 ## Updating
 
 The workspace is the git repository `git@gitlab.com:aenigma-group/vcod.git`, and this folder
