@@ -15,7 +15,7 @@ It runs on Linux and macOS (x86-64 and arm64).
 One line, on Linux or macOS:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/hatspencer/vcod/main/install.sh | bash
+curl -fsSL https://gitlab.com/aenigma-group/vcod/-/raw/main/install.sh | bash
 ```
 
 [`install.sh`](../install.sh) clones the workspace to `~/vcod` (or pulls it when it is
@@ -44,7 +44,7 @@ source folder after `sh vcod/build.sh build`.
 
 ## Updating
 
-The workspace is the git repository `git@github.com:hatspencer/vcod.git`, and this folder
+The workspace is the git repository `git@gitlab.com:aenigma-group/vcod.git`, and this folder
 is its `vcod/`. `vcod version` fetches `main` and says whether the checkout is behind
 or the sources changed since this build. `vcod update`:
 

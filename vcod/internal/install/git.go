@@ -10,7 +10,7 @@ import (
 
 // Remote is the git repository vcod updates itself from. It holds the whole workspace
 // (minus the retail game files); the tool's sources are its SubDir folder.
-const Remote = "git@github.com:hatspencer/vcod.git"
+const Remote = "git@gitlab.com:aenigma-group/vcod.git"
 
 // Branch is the branch `vcod update` follows.
 const Branch = "main"

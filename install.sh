@@ -2,11 +2,11 @@
 # Installs vcod on Linux or macOS: clones (or updates) the workspace repository, builds
 # vcod and installs it to ~/.vcod with a ~/.local/bin/vcod symlink.
 #
-#   curl -fsSL https://raw.githubusercontent.com/hatspencer/vcod/main/install.sh | bash
+#   curl -fsSL https://gitlab.com/aenigma-group/vcod/-/raw/main/install.sh | bash
 #
 # Settings (environment variables):
 #   VCOD_DIR      where the workspace is cloned (default ~/vcod)
-#   VCOD_REPO     the repository to clone (default https://github.com/hatspencer/vcod.git)
+#   VCOD_REPO     the repository to clone (default https://gitlab.com/aenigma-group/vcod.git)
 #   VCOD_BRANCH   the branch (default main)
 #   VCOD_BUILD    podman or native: where Go runs (default: native Go when it is
 #                 installed, else podman)
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 DIR=${VCOD_DIR:-$HOME/vcod}
-REPO=${VCOD_REPO:-https://github.com/hatspencer/vcod.git}
+REPO=${VCOD_REPO:-https://gitlab.com/aenigma-group/vcod.git}
 BRANCH=${VCOD_BRANCH:-main}
 
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
