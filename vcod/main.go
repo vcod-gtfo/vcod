@@ -25,6 +25,7 @@ import (
 	_ "vcod/cmd/install"
 	_ "vcod/cmd/lan"
 	_ "vcod/cmd/logs"
+	_ "vcod/cmd/maps"
 	_ "vcod/cmd/play"
 	_ "vcod/cmd/rcon"
 	_ "vcod/cmd/screens"

@@ -87,6 +87,18 @@ A binary with no source folder clones the repository into `~/.vcod/src` first.
 | `rcon <cmd>`, `status`, `logs` | Q3 out-of-band UDP (`getstatus`, `rcon`), plus the job logs and the server's `games_mp.log` / `console_mp_server.log` |
 | `flavors [make\|rebuild]` | `cod_rea/server/make_flavors.sh` |
 
+## Maps
+
+```sh
+vcod maps                    # the maps this flavor's server can load: stock, then custom
+vcod maps sd                 # only those whose .arena lists S&D
+vcod maps --client --json    # the client install's, as JSON (--names: one name per line)
+```
+
+pk3s are read in the engine's order, so the "from" column names the pk3 whose copy the
+game uses. A map without an `.arena` entry shows no gametypes. Add a map by dropping its pk3
+into `flavors/server-<f>/main` (and the client's).
+
 ## LAN games
 
 ```sh
