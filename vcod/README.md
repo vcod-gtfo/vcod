@@ -99,6 +99,21 @@ pk3s are read in the engine's order, so the "from" column names the pk3 whose co
 game uses. A map without an `.arena` entry shows no gametypes. Add a map by dropping its pk3
 into `flavors/server-<f>/main` (and the client's).
 
+## Demos
+
+```sh
+vcod demo                    # the demos this flavor's client recorded (newest first)
+vcod demo <name>             # start the client and play one; <Tab> completes the names
+vcod demo <name> --headless  # client options work as for 'vcod client'
+vcod demo --names            # one name per line (what completion runs)
+```
+
+Demos live in the client home, `~/.local/share/vcod/home-<flavor>/main/demos`. Record in
+game with `record [name]` / `stoprecord`, or `seta cg_autodemo 1` on servers that start
+and stop recordings each round. The format is retail's `.dm_2`, so demos from a Windows
+install play when copied there. Shell completion reads the names live: regenerate the
+script once after updating (`vcod completion bash`).
+
 ## LAN games
 
 ```sh

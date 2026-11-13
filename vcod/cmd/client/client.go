@@ -156,6 +156,11 @@ func Start(ctx *app.Context, args []string) int {
 	if o.Connect != "" {
 		to = o.Connect
 	}
+	for i, a := range o.Extra {
+		if a == "+demo" && i+1 < len(o.Extra) {
+			to = "demo " + o.Extra[i+1]
+		}
+	}
 	ctx.Out.OK("client %s started (%s build) → %s  %s", ui.FlavorBadge(string(f)), o.Build.Name, to,
 		ui.StyleDim.Render("(pid "+strconv.Itoa(j.PID)+")"))
 	if o.Build.Name == "video" {

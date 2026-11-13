@@ -36,10 +36,12 @@ _vcod_completions() {
 	fmt.Fprintf(&b, "  local fpscaps=%q\n\n", strings.Join(video.FPSWords(), " "))
 	b.WriteString(`  # The command already on the line, if any: global flags before it are skipped,
   # and the ones that take a value skip that too.
-  local i cmd=""
+  local i cmd="" flv=""
   for ((i = 1; i < COMP_CWORD; i++)); do
     case "${COMP_WORDS[i]}" in
-      -F|--flavor) ((i++)) ;;
+      -F|--flavor) flv="${COMP_WORDS[i+1]}"; ((i++)) ;;
+      --15) flv=1.5 ;;
+      --16x) flv=1.6x ;;
       -*) ;;
       *) cmd="${COMP_WORDS[i]}"; break ;;
     esac
@@ -82,15 +84,19 @@ _vcod_completions() {
       COMPREPLY=($(compgen -W "$commands" -- "$cur")) ;;
 `)
 	for _, cmd := range sortedCommands() {
-		if cmd.Complete == nil {
+		var candidates []string
+		if cmd.Complete != nil {
+			candidates = cmd.Complete(nil)
+		}
+		if len(candidates) == 0 && cmd.Dynamic == "" {
 			continue
 		}
-		candidates := cmd.Complete(nil)
-		if len(candidates) == 0 {
-			continue
+		words := fmt.Sprintf("%q", strings.Join(candidates, " "))
+		if cmd.Dynamic != "" {
+			// run at completion time: the list changes on disk
+			words = fmt.Sprintf("\"%s $(vcod ${flv:+-F $flv} %s 2>/dev/null)\"", strings.Join(candidates, " "), cmd.Dynamic)
 		}
-		fmt.Fprintf(&b, "    %s)\n      COMPREPLY=($(compgen -W %q -- \"$cur\")) ;;\n",
-			cmd.Name, strings.Join(candidates, " "))
+		fmt.Fprintf(&b, "    %s)\n      COMPREPLY=($(compgen -W %s -- \"$cur\")) ;;\n", cmd.Name, words)
 	}
 	b.WriteString(`  esac
 }
@@ -113,6 +119,10 @@ func Fish() string {
 				fmt.Fprintf(&b, "complete -c vcod -n '__fish_seen_subcommand_from %s' -a %s\n",
 					cmd.Name, fishQuote(cand))
 			}
+		}
+		if cmd.Dynamic != "" {
+			fmt.Fprintf(&b, "complete -c vcod -n '__fish_seen_subcommand_from %s' -a '(vcod %s 2>/dev/null)'\n",
+				cmd.Name, cmd.Dynamic)
 		}
 	}
 	b.WriteString("complete -c vcod -s F -l flavor -x -a '1.5 1.6x' -d 'Flavor for this command only'\n")

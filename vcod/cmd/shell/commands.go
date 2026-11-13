@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	democmd "vcod/cmd/demo"
 	"vcod/internal/config"
 	"vcod/internal/game"
 	"vcod/internal/jobs"
@@ -475,6 +476,10 @@ func (m Model) candidates(prev []string) []string {
 		out = append(out, c.Complete(prev[1:])...)
 	}
 	switch c.Name {
+	case "demo":
+		if m.cfg != nil {
+			out = append(out, democmd.Names(m.cfg.ClientHome(m.flavor))...)
+		}
 	case "play", "server":
 		out = append(out, game.Maps...)
 		out = append(out, game.Gametypes...)

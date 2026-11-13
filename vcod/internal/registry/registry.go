@@ -48,6 +48,10 @@ type Command struct {
 	Writes bool
 	// Complete offers completion candidates for the command's own arguments.
 	Complete func(words []string) []string
+	// Dynamic is a vcod command line whose output, one candidate per line, adds
+	// completions that change on disk (demo names). The generated shell scripts run it
+	// at each completion, so its output must stay quick and plain.
+	Dynamic string
 	// Run is the command. It returns the process exit code.
 	Run func(ctx *app.Context, args []string) int
 }
