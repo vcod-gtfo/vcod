@@ -8,9 +8,10 @@ import (
 	"strings"
 )
 
-// Remote is the git repository vcod updates itself from. It holds the whole workspace
-// (minus the retail game files); the tool's sources are its SubDir folder.
-const Remote = "git@gitlab.com:aenigma-group/vcod.git"
+// Remote is the public repository vcod is published to: the SubDir folder and the
+// installer, mirrored from the (private) workspace. A checkout with an origin of its
+// own (the workspace) updates from that instead; see UpdateRemote.
+const Remote = "https://github.com/vcod-gtfo/vcod.git"
 
 // Branch is the branch `vcod update` follows.
 const Branch = "main"
@@ -18,13 +19,25 @@ const Branch = "main"
 // SubDir is the folder inside the repository that holds the vcod sources.
 const SubDir = "vcod"
 
-// EnvRemote overrides Remote (a fork, or a local mirror).
+// EnvRemote overrides the remote (a fork, or a local mirror).
 const EnvRemote = "VCOD_REMOTE"
 
 // RemoteURL is the repository to update from.
 func RemoteURL() string {
 	if v := os.Getenv(EnvRemote); v != "" {
 		return v
+	}
+	return Remote
+}
+
+// UpdateRemote is the repository the checkout at root updates from: VCOD_REMOTE, else
+// the checkout's own origin (the workspace, or the public mirror), else Remote.
+func UpdateRemote(ctx context.Context, root string) string {
+	if v := os.Getenv(EnvRemote); v != "" {
+		return v
+	}
+	if u, err := Git(ctx, root, "remote", "get-url", "origin"); err == nil && u != "" {
+		return u
 	}
 	return Remote
 }

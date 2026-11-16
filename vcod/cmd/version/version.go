@@ -51,8 +51,8 @@ func init() {
 const versionHelp = `Prints the build this binary was made from (the first seven hex digits of a hash over
 vcod's Go sources), where it is installed and which source folder it updates from.
 
-The source folder lives in a git checkout of ` + install.Remote + `.
-version fetches ` + install.Branch + ` and says how many commits the checkout is behind, and whether
+The source folder lives in a git checkout: the workspace, or a clone of
+` + install.Remote + `. version fetches ` + install.Branch + ` and says how many commits the checkout is behind, and whether
 the local sources hash differently from this build. Either way: vcod update.`
 
 func runVersion(ctx *app.Context, args []string) int {
@@ -70,9 +70,9 @@ func runVersion(ctx *app.Context, args []string) int {
 		where += "  " + ui.StyleDim.Render("(installed)")
 	}
 	out.Note("binary  %s", where)
-	out.Note("remote  %s (%s)", install.RemoteURL(), install.Branch)
 	src := paths.Source()
 	if src == "" {
+		out.Note("remote  %s (%s)", install.RemoteURL(), install.Branch)
 		out.Note("source  %s", ui.StyleYellow.Render("none — vcod update clones the remote into "+paths.CloneDir()))
 		return 0
 	}
@@ -99,11 +99,13 @@ func reportRemote(ctx *app.Context, root string) {
 	out := ctx.Out
 	head, _ := install.Git(ctx.Ctx, root, "rev-parse", "--short", "HEAD")
 	branch, _ := install.Git(ctx.Ctx, root, "rev-parse", "--abbrev-ref", "HEAD")
+	out.Note("remote  %s (%s)", install.UpdateRemote(ctx.Ctx, root), install.Branch)
 	out.Note("commit  %s on %s", head, branch)
 	tctx, cancel := context.WithTimeout(ctx.Ctx, 15*time.Second)
 	defer cancel()
-	if _, err := install.Git(tctx, root, "fetch", "--quiet", install.RemoteURL(), install.Branch); err != nil {
-		out.Warn("could not fetch %s: %v", install.RemoteURL(), err)
+	remote := install.UpdateRemote(ctx.Ctx, root)
+	if _, err := install.Git(tctx, root, "fetch", "--quiet", remote, install.Branch); err != nil {
+		out.Warn("could not fetch %s: %v", remote, err)
 		return
 	}
 	behind, _ := install.Git(ctx.Ctx, root, "rev-list", "--count", "HEAD..FETCH_HEAD")
@@ -123,15 +125,15 @@ const updateHelp = `Usage:
   vcod update      pull ` + install.Branch + ` from the remote, rebuild and reinstall when the sources changed
   vcod update -f   rebuild and reinstall even when they did not
 
-The source folder is the vcod/ folder of a git checkout of ` + install.Remote + `
-(normally this workspace). update fast-forwards that checkout to the remote's ` + install.Branch + `,
+The source folder is the vcod/ folder of a git checkout: the workspace, or a clone of
+` + install.Remote + `. update fast-forwards that checkout to its origin's ` + install.Branch + `,
 then runs 'sh <source>/build.sh install', which compiles in a golang container (podman)
 and installs the result. Local edits are kept: git refuses the fast-forward when a pulled
 file would overwrite one, and update then rebuilds what is there. A checkout on another
 branch, or with commits of its own, is not touched.
 
 Without a source folder (a binary copied elsewhere), update clones the remote into
-~/.vcod/src first. Override the remote with VCOD_REMOTE.
+~/.vcod/src first. VCOD_REMOTE overrides the remote in either case.
 
 Your configuration and the running jobs are left alone.`
 
@@ -202,8 +204,9 @@ func pull(ctx *app.Context, root string) {
 		out.Warn("%s is on branch %q, not %s; not pulling", root, b, install.Branch)
 		return
 	}
-	out.Info("fetching %s %s", install.RemoteURL(), install.Branch)
-	if _, err := install.Git(ctx.Ctx, root, "fetch", "--quiet", install.RemoteURL(), install.Branch); err != nil {
+	remote := install.UpdateRemote(ctx.Ctx, root)
+	out.Info("fetching %s %s", remote, install.Branch)
+	if _, err := install.Git(ctx.Ctx, root, "fetch", "--quiet", remote, install.Branch); err != nil {
 		out.Warn("fetch failed: %v", err)
 		return
 	}

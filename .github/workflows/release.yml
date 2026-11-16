@@ -1,0 +1,32 @@
+# Builds vcod for Linux and macOS (amd64, arm64) and attaches the binaries to a
+# release. It runs only on a v* tag or by hand, never on a push.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: vcod/go.mod
+          cache: false
+      - name: check
+        working-directory: vcod
+        run: VCOD_BUILD=native sh build.sh check
+      - name: build
+        working-directory: vcod
+        run: VCOD_BUILD=native sh build.sh cross
+      - name: release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" vcod/dist/* --title "vcod $GITHUB_REF_NAME" --generate-notes

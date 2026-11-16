@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
-# Installs vcod on Linux or macOS: clones (or updates) the workspace repository, builds
-# vcod and installs it to ~/.vcod with a ~/.local/bin/vcod symlink.
+# Installs vcod on Linux or macOS: clones (or updates) the vcod repository, builds vcod
+# (or downloads the prebuilt binary when there is no Go and no podman) and installs it to
+# ~/.vcod with a ~/.local/bin/vcod symlink.
 #
-#   curl -fsSL https://gitlab.com/aenigma-group/vcod/-/raw/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/vcod-gtfo/vcod/main/install.sh | bash
+#
+# Run from a checkout (bash install.sh), it builds that checkout instead of cloning: this
+# is how the private workspace installs its own vcod.
 #
 # Settings (environment variables):
-#   VCOD_DIR      where the workspace is cloned (default ~/vcod)
-#   VCOD_REPO     the repository to clone (default https://gitlab.com/aenigma-group/vcod.git)
+#   VCOD_DIR      where the repository is cloned (default ~/vcod)
+#   VCOD_REPO     the repository to clone (default https://github.com/vcod-gtfo/vcod.git)
 #   VCOD_BRANCH   the branch (default main)
 #   VCOD_BUILD    podman or native: where Go runs (default: native Go when it is
 #                 installed, else podman)
 #   VCOD_NO_RC=1  do not touch shell rc files
 #
-# It needs git, and either a Go toolchain or podman. It installs nothing else and never
-# uses sudo. The game files are not in the repository: copy your own Call of Duty 1.5
-# install into <VCOD_DIR>/cod afterwards (see flavors/README.md).
+# It needs git, and Go, podman or curl. It installs nothing else and never uses sudo.
 set -euo pipefail
 
 DIR=${VCOD_DIR:-$HOME/vcod}
-REPO=${VCOD_REPO:-https://gitlab.com/aenigma-group/vcod.git}
+REPO=${VCOD_REPO:-https://github.com/vcod-gtfo/vcod.git}
+RELEASES=https://github.com/vcod-gtfo/vcod/releases/latest/download
 BRANCH=${VCOD_BRANCH:-main}
 
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
@@ -58,18 +61,26 @@ esac
 have git || die "git is missing: $(pkg_hint git)"
 
 # Prefer a native Go: no container, and on macOS podman's VM is not needed to build.
+# Without either, take the prebuilt binary from the latest release.
 if [ -z "${VCOD_BUILD:-}" ]; then
   if have go; then
     VCOD_BUILD=native
   elif have podman; then
     VCOD_BUILD=podman
+  elif have curl; then
+    VCOD_BUILD=prebuilt
   else
-    die "vcod is built with Go: install it ($(pkg_hint go)) or podman ($(pkg_hint podman)), then run this again"
+    die "vcod needs Go ($(pkg_hint go)), podman ($(pkg_hint podman)) or curl to download it"
   fi
 fi
 export VCOD_BUILD
 
-if [ -d "$DIR/.git" ]; then
+# Run from a checkout: build that one.
+HERE=$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)
+if [ -n "$HERE" ] && [ -f "$HERE/vcod/build.sh" ] && [ -d "$HERE/.git" ]; then
+  DIR=$HERE
+  say "using the checkout in $DIR"
+elif [ -d "$DIR/.git" ]; then
   say "updating $DIR"
   git -C "$DIR" fetch --quiet origin "$BRANCH"
   if ! git -C "$DIR" merge --ff-only --quiet "origin/$BRANCH"; then
@@ -82,8 +93,23 @@ else
   git clone --quiet --branch "$BRANCH" "$REPO" "$DIR"
 fi
 
-say "building vcod ($VCOD_BUILD Go)"
-sh "$DIR/vcod/build.sh" install
+if [ "$VCOD_BUILD" = prebuilt ]; then
+  os=$(uname -s | tr '[:upper:]' '[:lower:]')
+  case "$(uname -m)" in
+    x86_64|amd64) arch=amd64 ;;
+    arm64|aarch64) arch=arm64 ;;
+    *) die "no prebuilt vcod for $(uname -m); install Go ($(pkg_hint go)) and run this again" ;;
+  esac
+  say "downloading vcod-$os-$arch"
+  curl -fsSL -o "$DIR/vcod/vcod" "$RELEASES/vcod-$os-$arch" ||
+    die "download failed; install Go ($(pkg_hint go)) and run this again to build it"
+  chmod +x "$DIR/vcod/vcod"
+  if [ "$os" = darwin ]; then xattr -d com.apple.quarantine "$DIR/vcod/vcod" 2>/dev/null || true; fi
+  "$DIR/vcod/vcod" install -f
+else
+  say "building vcod ($VCOD_BUILD Go)"
+  sh "$DIR/vcod/build.sh" install
+fi
 
 BIN=${VCOD_BIN_DIR:-$HOME/.local/bin}
 VCOD="$BIN/vcod"
@@ -91,7 +117,8 @@ VCOD="$BIN/vcod"
 
 say "installed $VCOD"
 
-cat <<EOF
+if [ -d "$DIR/cod_rea" ]; then
+  cat <<EOF
 
 Next steps:
   1. Copy your own Call of Duty install, patched to 1.5, to $DIR/cod
@@ -102,3 +129,14 @@ Next steps:
   5. vcod lan                   servers on your network;  vcod lan join N  to play
      vcod doctor                checks everything above
 EOF
+else
+  cat <<EOF
+
+The native client and the servers are built from the cod_rea workspace, which is
+invite only. Ask for access at https://github.com/vcod-gtfo/vcod/issues, then:
+  git clone https://github.com/vcod-gtfo/cod_rea.git ~/cod_rea
+  bash ~/cod_rea/install.sh     vcod from the workspace; it prints the next steps
+You need your own Call of Duty install, patched to 1.5: the game files are never
+distributed.
+EOF
+fi

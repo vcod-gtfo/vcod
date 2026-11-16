@@ -15,15 +15,16 @@ It runs on Linux and macOS (x86-64 and arm64).
 One line, on Linux or macOS:
 
 ```sh
-curl -fsSL https://gitlab.com/aenigma-group/vcod/-/raw/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vcod-gtfo/vcod/main/install.sh | bash
 ```
 
-[`install.sh`](../install.sh) clones the workspace to `~/vcod` (or pulls it when it is
-already there), builds vcod and installs it. It needs `git` and either Go or podman,
-installs nothing else and never uses sudo. `VCOD_DIR`, `VCOD_REPO`, `VCOD_BRANCH`,
-`VCOD_BUILD` and `VCOD_NO_RC=1` change what it does (see the script's header). The
-raw URL only works while the repository is public; for a private one, clone it and run
-the script from the checkout: `bash install.sh`.
+[`install.sh`](../install.sh) clones the public repository
+[vcod-gtfo/vcod](https://github.com/vcod-gtfo/vcod) to `~/vcod` (or pulls it when it is
+already there), builds vcod and installs it. Without Go and podman it downloads the
+prebuilt binary of the latest release instead. It needs `git`, installs nothing else
+and never uses sudo. Run from a checkout (`bash install.sh` in the workspace), it builds
+that checkout. `VCOD_DIR`, `VCOD_REPO`, `VCOD_BRANCH`, `VCOD_BUILD` and `VCOD_NO_RC=1`
+change what it does (see the script's header).
 
 From a checkout:
 
@@ -61,18 +62,19 @@ are made; nothing existing is replaced.
 
 ## Updating
 
-The workspace is the git repository `git@gitlab.com:aenigma-group/vcod.git`, and this folder
-is its `vcod/`. `vcod version` fetches `main` and says whether the checkout is behind
-or the sources changed since this build. `vcod update`:
+The source folder is the `vcod/` folder of a git checkout: the private workspace
+(`vcod-gtfo/cod_rea`), or a clone of the public mirror `vcod-gtfo/vcod`. `vcod version`
+fetches its origin's `main` and says whether the checkout is behind or the sources
+changed since this build. `vcod update`:
 
-1. fast-forwards the checkout to `origin/main`. It skips this step when the checkout is
+1. fast-forwards the checkout to its origin's `main`. It skips this step when the checkout is
    on another branch or has commits of its own, and git refuses it when a pulled file
    would overwrite a local edit.
 2. runs `build.sh install` when the sources hash differently from the running binary
    (`-f` forces it).
 
-A binary with no source folder clones the repository into `~/.vcod/src` first.
-`VCOD_REMOTE` points it at another remote.
+A binary with no source folder clones the public mirror into `~/.vcod/src` first (and
+then needs Go or podman to rebuild). `VCOD_REMOTE` points it at another remote.
 
 ## What it drives
 
@@ -198,8 +200,10 @@ sh build.sh cross    # dist/vcod-{linux,darwin}-{amd64,arm64}
 sh build.sh hash     # the version a build would get
 ```
 
-There is no CI: check a change with `sh build.sh check`, and that it still builds for
-macOS with `sh build.sh cross`.
+Check a change with `sh build.sh check`, and that it still builds for macOS with
+`sh build.sh cross`. The only CI is the public mirror's release workflow: `sh
+public/publish.sh vX.Y.Z` from the workspace publishes and tags, and the tag builds the
+four binaries into a GitHub release.
 
 The version is the first 7 hex digits of a sha256 over the Go sources rather than a git
 commit, so a build with local edits gets its own name. `internal/version` computes the same hash in Go so that
