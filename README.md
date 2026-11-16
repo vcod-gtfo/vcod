@@ -40,3 +40,8 @@ Open an [issue](https://github.com/vcod-gtfo/vcod/issues) with the output of
 [`vcod/`](vcod) holds the Go sources; [`vcod/README.md`](vcod/README.md) documents every
 command. `sh vcod/build.sh check` runs the tests. This repository is a mirror: changes
 are made in the workspace and published here.
+
+## License
+
+vcod is released under the [MIT License](LICENSE). The license covers this repository
+only: not the game, its files, or the client workspace.
